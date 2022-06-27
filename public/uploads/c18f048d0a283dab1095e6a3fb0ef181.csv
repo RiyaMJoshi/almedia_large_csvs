@@ -1,0 +1,24 @@
+title,description,price,shortDescription,createdAtAgo
+"Half-eaten cheese","ID 1 new<br />
+<br />
+ data",100,"ID 1 new<br />
+<br />
+ data","1 day ago"
+"Giant Block of Amul cheese","so yummy!",1200,"so yummy!","1 day ago"
+string,string,0,string,"1 day ago"
+string,string,0,string,"21 hours ago"
+"Delicious chevre","So delicious<br />
+<br />
+You should try it.",2500,"So delicious<br />
+<br />
+You should try...","20 hours ago"
+"Crumbs of some blue cheese","Nevermind, I'll probably eat them.",500,"Nevermind, I'll probably eat them.","4 hours ago"
+"my piece of cheese","So good in taste",200,"So good in taste","4 hours ago"
+"Colourful Cheese","Blue, Pink, Yellow<br />
+<br />
+Colorful Cheeses are available<br />
+Do try it once.",0,"Blue, Pink, Yellow<br />
+<br />
+Colorful...","53 minutes ago"
+"Cheese BlockDemo0","Just like fixtures, filling some more cheeses!",100,"Just like fixtures, filling some more ch...","36 minutes ago"
+"Cheese BlockDemo1","Just like fixtures, filling some more cheeses!",100,"Just like fixtures, filling some more ch...","36 minutes ago"

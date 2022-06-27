@@ -1,0 +1,53 @@
+@import "~bootstrap";
+body {
+    font-family: spartan;
+    color: #444;
+}
+
+.example-wrapper {
+    margin: 1em auto;
+    max-width: 800px;
+    width: 95%;
+    font: 18px/1.5 sans-serif;
+}
+
+.example-wrapper code {
+    background: #F5F5F5;
+    padding: 2px 6px;
+}
+
+.fa-trash {
+    color: #fff;
+}
+
+.file-top-margin {
+    margin-top: 40px;
+}
+
+.text-danger-80 {
+    color: rgba(108, 117, 125, 0.8);
+}
+
+.text-light-80 {
+    color: #eee8d5;
+}
+
+.px-4-fail {
+    padding-right: 1.5rem !important;
+    padding-left: 2.5rem !important;
+}
+
+.terminal {
+    left: 50px;
+    right: 50px;
+    background: #073642;
+    border: solid #073642;
+    border-width: 30px 5px 8px 5px;
+    border-radius: 4px;
+    padding-left: 3px;
+    margin-bottom: 30px;
+}
+
+footer {
+    background-color: #efefee;
+}

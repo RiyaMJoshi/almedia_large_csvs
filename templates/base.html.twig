@@ -2,18 +2,41 @@
 <html>
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        {# Run `composer require symfony/webpack-encore-bundle`
-           and uncomment the following Encore helpers to start using Symfony UX #}
+        <title>{% block title %}Manage CSVs - A|L Media{% endblock %}</title>
+        <link rel="shortcut icon" sizes="16x16 24x24 32x32 48x48 64x64 96x96" href="https://3hm6jtx4tmt1x0btm1kntswo-wpengine.netdna-ssl.com/favicon.ico">
         {% block stylesheets %}
-            {#{{ encore_entry_link_tags('app') }}#}
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Spartan&display=swap">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+            {{ encore_entry_link_tags('app') }}
         {% endblock %}
-
         {% block javascripts %}
-            {#{{ encore_entry_script_tags('app') }}#}
+            {{ encore_entry_script_tags('app') }}
         {% endblock %}
     </head>
-    <body>
+    <body class="d-flex flex-column min-vh-100">
+        {# <a href="{{ path('app_homepage') }}" class="brand">
+            <img src="https://3hm6jtx4tmt1x0btm1kntswo-wpengine.netdna-ssl.com/wp-content/themes/scotchpress/img/logo-full.png">
+        </a> #}
+        <nav class="navbar navbar-expand-lg navbar-light bg-light px-1">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="{{ path('app_homepage') }}">
+                    <img src="https://3hm6jtx4tmt1x0btm1kntswo-wpengine.netdna-ssl.com/wp-content/themes/scotchpress/img/logo-full.png" style="width: 55px; height: 66px;">
+                    <p class="pl-2 d-inline font-weight-bold" style="color: #444;">
+                        AL Media CSVs</p>
+                </a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-collapsable" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbar-collapsable">
+                </div>
+            </div>
+        </nav>       
+
         {% block body %}{% endblock %}
+        <footer class="mt-auto p-3 text-center">
+            &copy; <a style="color: #444; text-decoration: none;" href="#">AL Media CSVs 2022 </a> &reg; - Your CSV Editor made with love at <a style="color: #444; text-decoration: underline;" href="https://www.simform.com/">Simform Solutions</a>
+        </footer>
     </body>
 </html>

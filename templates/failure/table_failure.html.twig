@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+{% block title %}CSV Failure - A|L Media{% endblock %}
+{% block body %}
+    <div class="example-wrapper">
+	<h1>Manage Your Large CSVs</h1>
+	<span class="mb-4">Make CSV files easy to operate by managing them in various ways.</span>
+
+	<div class="my-4">
+		<div class="card my-2" style="width: 50rem;">
+			<div class="card-body">
+				<div data-role="page" id="viewInformation" data-theme="d" data-add-back-btn="true"
+					data-back-btn-text="back">
+					<div data-role="header" id="headerid" class="ui-bar ui-bar-b terminal px-4-fail" style="padding:20px">
+						<div class="h4 text-warning">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> 
+                            Opps.. Please try re-uploading your file!
+                        </div>
+                        <div class="text-light-80 mt-4"> Sorry for the inconvenience. Something went wrong..! It seems that You might have refreshed the page or tried to export your file multiple times.!</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

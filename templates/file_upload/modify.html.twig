@@ -1,0 +1,105 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modify Your CSV - A|L Media{% endblock %}
+
+{# {% block stylesheets %}
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" />
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" />
+<link rel="stylesheet" href="bootstrap-iconpicker/css/bootstrap-iconpicker.min.css">
+{% endblock %} #}
+
+
+{% block body %}
+
+<div class="example-wrapper">
+	<h1>Manage Your Large CSVs</h1>
+	<span class="mb-4">Make CSV files easy to operate by managing them in various ways.</span>
+
+	<div class="my-4">
+
+		<div class="card my-2" style="width: 50rem;">
+			<div class="card-header">
+				<h5 class="float-left">Columns</h5>
+			</div>
+			<div class="card-body">
+				<div data-role="page" id="viewInformation" data-theme="d" data-add-back-btn="true"
+					data-back-btn-text="back">
+					<div data-role="header" id="headerid" class="ui-bar ui-bar-b">
+						{# {{ filename }} #}
+						<form class="form-group" action="{{path('app_export')}}">
+							<ul class="list-group" id="sortable">
+								{% for column in columns %}
+								
+								<script></script>
+								<li data-role="content" class="input-group d-flex mb-3" id="contentid">
+									<span class="input-group-text"><i class='fa fa-sort'></i></span>
+									<input class="form-control list-group-item fs-6" style="width:90%" name="text[]" value="{{column}}"/>
+									<input type="hidden" name="original_cols[]" value="{{column}}">
+									<span class="input-group-text deleteCol bg-danger"><i class="fa fa-trash"></i></span>
+								</li>
+								{% endfor %}
+								<input type="hidden" name="filename" value="{{ filename }}">
+								<div>
+									<input type="submit" id="sub" class="btn btn-dark me-md-2" style="width:20%" value="Export CSV">
+									<input type="submit" id="export_zip" class="btn btn-dark me-md-2" style="width:20%" value="Export ZIP">
+								</div>
+							</ul>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+	{% block javascripts %}
+	<script>
+	
+		$(function () {
+			$("#sortable").sortable();
+
+			/*
+			$("#sub").click(function() {
+                $.ajax({
+						url: "/export", 
+						type: "POST",
+						data: $("form").serialize(),
+                        success: function(result) {
+                    console.log(result.blob());
+                }});
+            });
+			*/
+		});
+
+		// Redirect after 10 seconds on clicking Export
+		$(document).on('submit', 'form', function() {
+		setTimeout(function() {
+			window.location = "/";
+		}, 10000);
+		});
+        
+        $(".deleteCol").click(function(){
+            if(confirm('Are you sure you want to delete this column?')) {
+                console.log('Yes');
+                var curr = $(this).parent().children();
+                console.log(curr);
+                $(this).parent().remove();
+            } else {
+                console.log('No');
+            }
+            
+        });
+	</script>
+	<script type="text/javascript" src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
+	<script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+	<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.js"></script>
+	{#
+	<script type="text/javascript"
+		src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.bundle.min.js"></script> #}
+
+	{#
+	<script type="text/javascript" src="bootstrap-iconpicker/js/iconset/fontawesome5-3-1.min.js"></script>
+	<script type="text/javascript" src="bootstrap-iconpicker/js/bootstrap-iconpicker.min.js"></script> #}
+	{#
+	<script type="text/javascript" src="jquery-menu-editor.min.js"></script> #}
+	{% endblock %}
+	{% endblock %}

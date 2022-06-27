@@ -5,12 +5,12 @@
         "php": ">=7.2.5",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "doctrine/annotations": "^1.0",
+        "doctrine/annotations": "^1.13",
         "doctrine/doctrine-bundle": "^2.3",
         "doctrine/doctrine-migrations-bundle": "^3.2",
         "doctrine/orm": "^2.12",
         "phpdocumentor/reflection-docblock": "^5.3",
-        "sensio/framework-extra-bundle": "^6.1",
+        "sensio/framework-extra-bundle": "^6.2",
         "symfony/asset": "5.1.*",
         "symfony/console": "5.1.*",
         "symfony/doctrine-messenger": "5.1.*",
@@ -36,6 +36,7 @@
         "symfony/twig-bundle": "5.1.*",
         "symfony/validator": "5.1.*",
         "symfony/web-link": "5.1.*",
+        "symfony/webpack-encore-bundle": "^1.14",
         "symfony/yaml": "5.1.*",
         "twig/extra-bundle": "^2.12|^3.0",
         "twig/twig": "^2.12|^3.0"
@@ -45,7 +46,10 @@
         "preferred-install": {
             "*": "dist"
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "symfony/flex": true
+        }
     },
     "autoload": {
         "psr-4": {
