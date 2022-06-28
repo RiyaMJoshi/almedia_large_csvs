@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\MetaTable;
 use App\Repository\MetaTableRepository;
+use Aws\S3\Exception\S3Exception;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,8 @@ use PhpParser\Node\Scalar\MagicConst\File;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Session\Session;
+use Aws\S3\S3Client;
+
 class FileUploadController extends AbstractController
 {
     // Home Page
@@ -52,6 +55,17 @@ class FileUploadController extends AbstractController
         $uploads_directory = $this->getParameter('uploads_directory');
         $random_num = md5(uniqid());
         $filename = '';
+        $filesize = 0;
+
+        // Upload File to S3 Bucket
+        $s3 = new S3Client([
+            'version' => 'latest',
+            'region' => 'us-east-1',
+            'credentials' => [
+                'key'    => $_ENV['AWS_S3_ACCESS_ID'],
+                'secret' => $_ENV['AWS_S3_ACCESS_SECRET']
+            ],
+        ]);
         
         // Extract file if it is zip
         if ($extension == 'zip') {
@@ -80,35 +94,63 @@ class FileUploadController extends AbstractController
             // Filename after renaming (string)
             $filename = $random_num . $fileExt; 
             
-            // Upload
+            // Extract Zip to Local Uploads, Rename it, Upload CSV in it to S3 and Delete from Local Uploads
             $zipArchive->extractTo($uploads_directory, $file1);
             $zipArchive->close();
             rename($uploads_directory."/".$file1, $uploads_directory."/".$filename);
+            $file_full = $uploads_directory . '/' . $filename;
+            $filesize = filesize($file_full); // bytes
+            // $filesize = round($filesize / 1024, 2);
+            
+            try {
+                // Upload File from Local to S3 Bucket
+                $this->uploadToS3($s3, $filename, $file_full);
+                // Delete file from uploads directory
+                $fileSystem = new Filesystem();
+                $fileSystem->remove($file_full);
+            } catch (S3Exception $e) {
+                echo $e->getMessage() . "\n";
+            }
         } 
         // Move directly if it is CSV
         else if ($extension == 'csv') {
             // Filename after renaming (string)
             // $filename = $random_num . '.' . $file->guessExtension();
             $filename = $random_num . '.' . $extension;
-            // dd($filename);
-            $file->move(
-                $uploads_directory,
-                $filename
-            );
+            $filesize = filesize($file); // bytes
+            // $filesize = round($filesize / 1024, 2); // Convert to KB
+            // $id = '%env(AWS_S3_ACCESS_ID)%';
+            // dd($_ENV['AWS_S3_ACCESS_SECRET']);
+
+            try {
+                // Upload File to S3 Bucket
+                $this->uploadToS3($s3, $filename, $file);
+            } catch (S3Exception $e) {
+                echo $e->getMessage() . "\n";
+            }
         }
+        // die();
         // Set filename as session
         $session = new Session();
-        //$session->start();
+        // //$session->start();
         $session->set('user_id', $random_num);
         // $file_full = Absolute file path
-        $file_full = $uploads_directory . '/' . $filename;
+        // $file_full = $uploads_directory . '/' . $filename;
         // Open and extract csv
-        $filesize = filesize($file_full); // bytes
-        $filesize = round($filesize / 1024, 2);
-        if (($handle = fopen($file_full, "r")) !== false) {
+        // $filesize = filesize($file_full); // bytes
+        $filesize = round($filesize / 1024, 2); // Convert Byte size to KB
+
+        $s3->registerStreamWrapper();
+        $url = 's3://' . $_ENV['AWS_S3_BUCKET_NAME'] . '/' .$filename;
+
+        // Read CSV with fopen
+        if (($handle = fopen($url, "r")) !== false) {
             $columns = fgetcsv($handle, 3000, ",");
+            // dump($columns);
             fclose($handle);
         }
+        // die();
+
     //     //sql query for creating csv table
     //     $create_table_sql= 'CREATE TABLE '.$random_num.' (';
     //     for($i=0;$i<count($columns); $i++) {
@@ -178,7 +220,10 @@ class FileUploadController extends AbstractController
 
         // Modified Index wise Columns
         $original_column = $request->get('original_cols');
+        dump($original_column);
         $renamed_column = $request->get('text');
+        dump($renamed_column);
+        dd();
         // Array of columns from UI
         $list = array($renamed_column); 
         
@@ -239,6 +284,17 @@ class FileUploadController extends AbstractController
         // else {
         //     return $this->render('/failure/table_failure.html.twig');
         // }
+    }
+
+    public function uploadToS3(S3Client $s3, $filename_key, $file)
+    {
+        $s3->putObject([
+            'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+            'Key'    => $filename_key,
+            'Body'   => fopen($file, 'r')
+        ]);
+        // echo "File Uploaded to S3";
+        // return 1;
     }
        
 }
