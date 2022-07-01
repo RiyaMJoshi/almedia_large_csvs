@@ -17,9 +17,9 @@
         </div>
     {% endif %}
     <h1>Manage Your Large CSVs</h1>
-    <span class="mb-4">Make CSV files easy to operate by managing them in various ways.</span>
-    {# <span class="mb-4">Reorder, Rename or Delete Your CSV Columns and Make CSV files easy to operate.</span> #}
-    <form action="{{path('app_upload_file')}}" method="post" class="file-top-margin" enctype="multipart/form-data">
+    {# <span class="mb-4">Make CSV files easier to operate by managing them in various ways.</span> #}
+    <span class="mb-4">Reorder, Rename or Delete Your CSV Columns in an easier way.</span>
+    <form action="{{path('app_upload_file')}}" method="post" class="file-top-margin" enctype="multipart/form-data" id="uploadForm">
         <div>
             <input class="form-control" type="file" id="formFile" name="formFile"  accept=".csv, .zip" required="required">
         </div>
@@ -28,6 +28,83 @@
             <input class="mt-4 btn btn-primary" type="submit" id="formSubmit" value="Upload File">
         </div>
     </form>
+
+    <button class="btn btn-light mx-4" id="spinner-btn" type="button" disabled>
+        <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+        Please wait, Uploading...
+    </button>
+    {# <div class=" my-4 progress">
+        <div class="bar"></div >
+        <div class="percent">0%</div >
+    </div> #}
+
+    {# <div id="status"></div>  #}
+
 </div>
+{% block javascripts %}
+    
+<script>
+$(function() {
+
+    $('#spinner-btn').hide();
+    /* $('#formSubmit').click(function(){
+        $('#spinner-btn').show();
+    }); */
+    /* var bar = $('.bar');
+    var percent = $('.percent');
+    var status = $('#status');
+
+    $('#formSubmit').click(function(e){
+        var postURL = "{{path('app_upload_file')}}";
+        var userFile = $("#formFile").val();
+        // $('#status').html(postNama);
+
+        $('#uploadForm').ajaxForm({
+            beforeSend: function() {
+                $('#spinner-btn').hide();
+            },
+            uploadProgress: function(event, position, total, percentComplete) {
+                $('#spinner-btn').show();
+            },
+            complete: function(xhr) {
+                $('#spinner-btn').hide();
+                $.ajax({
+                    type: "POST",
+                    url: postURL,
+                    data:
+                    {
+                        formFile: userFile
+                    },
+                    success: function(data){
+                        console.log("File submitted");
+                    }
+                });
+                e.preventDefault();
+            }
+        });
+            // location.href = "{{path('app_upload_file')}}" // '/app_dev.php/test';
+            // status.html(xhr.responseText);
+        }
+    );
+    // });
+    /*$('#uploadForm').ajaxForm({
+        beforeSend: function() {
+             $('#spinner-btn').hide();
+        },
+        uploadProgress: function(event, position, total, percentComplete) {
+            $('#spinner-btn').show();
+        },
+        complete: function(xhr) {
+            $('#spinner-btn').hide();
+            location.href = "{{path('app_upload_file')}}" // '/app_dev.php/test';
+            // status.html(xhr.responseText);
+        }
+    }); */
+});  
+</script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script> 
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js" type="text/javascript"></script> 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js" integrity="sha384-qlmct0AOBiA2VPZkMY3+2WqkHtIQ9lSdAsAn5RUJD/3vA5MKDgSGcdmIv4ycVxyn" crossorigin="anonymous"></script>
 {# <script> $(document).ready(function(){ console.log("From doc console"); }); </script> #}
+{% endblock %}
 {% endblock %}

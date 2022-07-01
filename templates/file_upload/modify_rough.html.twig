@@ -14,7 +14,7 @@
 <div class="example-wrapper">
 	<h1>Manage Your Large CSVs</h1>
 	{# <span class="mb-4">Make CSV files easy to operate by managing them in various ways.</span> #}
-	<span class="mb-4">Reorder, Rename or Delete Your CSV Columns in an easier way.</span>
+    <span class="mb-4">Reorder, Rename or Delete Your CSV Columns in an easier way.</span>
 
 	<div class="my-4">
 
@@ -27,22 +27,22 @@
 					data-back-btn-text="back">
 					<div data-role="header" id="headerid" class="ui-bar ui-bar-b">
 						{# {{ filename }} #}
-						<form class="form-group">
+						<form class="form-group" action="#">
 							<ul class="list-group" id="sortable">
-								{% for column in columns %}
+								{% for i in range(1, 5) %}
 								
 								<script></script>
 								<li data-role="content" class="input-group d-flex mb-3" id="contentid">
 									<span class="input-group-text"><i class='fa fa-sort'></i></span>
-									<input class="form-control list-group-item fs-6" style="width:90%" name="text[]" value="{{column}}"/>
-									<input type="hidden" name="original_cols[]" value="{{column}}">
+									<input class="form-control list-group-item fs-6" style="width:90%" name="text[]" value="Field {{i}}"/>
+									<input type="hidden" name="original_cols[]" value="{{i}}">
 									<span class="input-group-text deleteCol bg-danger"><i class="fa fa-trash"></i></span>
 								</li>
 								{% endfor %}
 								<input type="hidden" name="filename" value="{{ filename }}">
 								<div>
-									<input type="submit" id="export_csv" class="btn btn-dark me-md-2" style="width:20%" value="Export CSV" formaction="{{path('app_export', {'format': 'csv'})}}">
-									<input type="submit" id="export_zip" class="btn btn-dark me-md-2" style="width:20%" value="Export ZIP" formaction="{{path('app_export', {'format': 'zip'})}}">
+									<input type="submit" id="sub" class="btn btn-dark me-md-2" style="width:20%" value="Export CSV">
+									<input type="submit" id="export_zip" class="btn btn-dark me-md-2" style="width:20%" value="Export ZIP">
 								</div>
 							</ul>
 						</form>
@@ -54,14 +54,12 @@
 </div>
 	{% block javascripts %}
 	<script>
-		window.onbeforeunload = function () {
-    		return "";
- 		};
+	
 		$(function () {
 			$("#sortable").sortable();
 
 			/*
-			$("#export_csv").click(function() {
+			$("#sub").click(function() {
                 $.ajax({
 						url: "/export", 
 						type: "POST",
@@ -95,6 +93,7 @@
 	<script type="text/javascript" src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
 	<script src="https://code.jquery.com/jquery-3.6.0.js"></script>
 	<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 	{#
 	<script type="text/javascript"
 		src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.bundle.min.js"></script> #}

@@ -4,6 +4,9 @@ namespace App\Controller;
 
 use App\Entity\MetaTable;
 use App\Repository\MetaTableRepository;
+use Aws\Credentials\Credentials;
+use Aws\Lambda\Exception\LambdaException;
+use Aws\Lambda\LambdaClient;
 use Aws\S3\Exception\S3Exception;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,6 +26,19 @@ use Aws\S3\S3Client;
 
 class FileUploadController extends AbstractController
 {
+    // Get Credentials
+    private $credentials;
+    private $config;
+    public function __construct()
+    {
+        $this->credentials = new Credentials($_ENV['AWS_S3_ACCESS_ID'], $_ENV['AWS_S3_ACCESS_SECRET']);
+        $this->config = array(
+            'version' => 'latest',
+                        'region' => 'us-east-1',
+                        'credentials' => $this->credentials
+        );
+    }
+     
     // Home Page
     /**
      * @Route("/", name="app_homepage")
@@ -34,7 +50,7 @@ class FileUploadController extends AbstractController
         ]);
     }
 
-    // Get File from User and Upload it to the Server (Plus Uploads directory)
+    // Get File from User and Upload it to the S3 (Temporarily to Uploads directory if it's zip)
     /**
      * @Route("/upload", name="app_upload_file")
      */
@@ -46,138 +62,108 @@ class FileUploadController extends AbstractController
         $file = $request->files->get('formFile');
         // dd($file);
 
+        // Get Original FileName with Extension
+        $originalFile = pathinfo($file->getClientOriginalName(), PATHINFO_BASENAME);
+        
         // Get Original FileName without Extension
         $originalFileName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
         // Get Extension of Original File
-        $extension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
-        // dd($extension);
+        $originalExtension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
+        
         $uploads_directory = $this->getParameter('uploads_directory');
         $random_num = md5(uniqid());
+        $fileKeyS3 = $random_num . '.' . $originalExtension;
         $filename = '';
         $filesize = 0;
 
         // Upload File to S3 Bucket
-        $s3 = new S3Client([
-            'version' => 'latest',
-            'region' => 'us-east-1',
-            'credentials' => [
-                'key'    => $_ENV['AWS_S3_ACCESS_ID'],
-                'secret' => $_ENV['AWS_S3_ACCESS_SECRET']
-            ],
-        ]);
-        
+        $s3 = new S3Client($this->config);
+
         // Extract file if it is zip
-        if ($extension == 'zip') {
+        if ($originalExtension == 'zip') {
             $zipArchive = new ZipArchive();
             $zipArchive->open($file);
+            // Get first file inside zip
             $stat = $zipArchive->statIndex(0);
 
-            // file1 = Basename = Filename with Extension (string)
-            $file1 = basename($stat['name']);  
-
-            // Extension of file inside the zip file
+            // file1 = Basename = Filename (inside zip) with Extension (string)
+            $file1 = basename($stat['name']);
+            // Extension of file inside the zip file (It must be 'csv' for further process)
             $fileExt = '.' . pathinfo($stat['name'], PATHINFO_EXTENSION);
-            // dd($fileExt);
             
-            // Check if File inside zip is in CSV format
-            if ($fileExt !== ".csv") {
-                $not_supported = "Could not found CSV file in your Zip $originalFileName!";
-                
+            // Check if File inside zip is in CSV format; Redirect if Not Supported
+            $not_supported = $this->checkZipContents($zipArchive, $fileExt);
+            
+            if ($not_supported) {
                 return $this->render('file_upload/index.html.twig', [
                     'controller_name' => 'FileUploadController',
                     'invalid_format' => $not_supported
-                ]);                
-                // dd("Could not found CSV file in your Zip!");
+                ]);
             }
-
-            // Filename after renaming (string)
+            
+            // CSV Filename (for Local) after renaming (string)
             $filename = $random_num . $fileExt; 
             
             // Extract Zip to Local Uploads, Rename it, Upload CSV in it to S3 and Delete from Local Uploads
             $zipArchive->extractTo($uploads_directory, $file1);
             $zipArchive->close();
-            rename($uploads_directory."/".$file1, $uploads_directory."/".$filename);
-            $file_full = $uploads_directory . '/' . $filename;
-            $filesize = filesize($file_full); // bytes
-            // $filesize = round($filesize / 1024, 2);
-            
+            $local_file_full = $uploads_directory . '/' . $filename;
+            rename($uploads_directory."/".$file1, $local_file_full);
+            $filesize = filesize($local_file_full); // bytes
+                       
             try {
-                // Upload File from Local to S3 Bucket
-                $this->uploadToS3($s3, $filename, $file_full);
+                // Upload CSV File from Local to S3 Bucket
+                // $this->uploadToS3($s3, $filename, $local_file_full);
+
+                // Upload ZIP to S3 for Time Optimisation
+                $this->uploadToS3($s3, $fileKeyS3, $file);
+
+                // Get Column Names from CSV
+                $columns = $this->getColumnHeaders($local_file_full);
                 // Delete file from uploads directory
                 $fileSystem = new Filesystem();
-                $fileSystem->remove($file_full);
+                $fileSystem->remove($local_file_full);
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
             }
         } 
         // Move directly if it is CSV
-        else if ($extension == 'csv') {
+        else if ($originalExtension == 'csv') {
             // Filename after renaming (string)
             // $filename = $random_num . '.' . $file->guessExtension();
-            $filename = $random_num . '.' . $extension;
             $filesize = filesize($file); // bytes
-            // $filesize = round($filesize / 1024, 2); // Convert to KB
-            // $id = '%env(AWS_S3_ACCESS_ID)%';
-            // dd($_ENV['AWS_S3_ACCESS_SECRET']);
-
+          
             try {
                 // Upload File to S3 Bucket
-                $this->uploadToS3($s3, $filename, $file);
+                $this->uploadToS3($s3, $fileKeyS3, $file);
+
+                $s3->registerStreamWrapper();
+                $url = 's3://' . $_ENV['AWS_S3_BUCKET_NAME'] . '/' .$fileKeyS3;
+
+                // Get Column Names from S3 CSV
+                $columns = $this->getColumnHeaders($url);
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
             }
         }
+        // dd("Zip uploaded");
         // die();
         // Set filename as session
         $session = new Session();
         // //$session->start();
         $session->set('user_id', $random_num);
-        // $file_full = Absolute file path
-        // $file_full = $uploads_directory . '/' . $filename;
-        // Open and extract csv
-        // $filesize = filesize($file_full); // bytes
+        // $local_file_full = Absolute file path
+        // $local_file_full = $uploads_directory . '/' . $filename;
+        // $filesize = filesize($local_file_full); // bytes
         $filesize = round($filesize / 1024, 2); // Convert Byte size to KB
 
-        $s3->registerStreamWrapper();
-        $url = 's3://' . $_ENV['AWS_S3_BUCKET_NAME'] . '/' .$filename;
-
-        // Read CSV with fopen
-        if (($handle = fopen($url, "r")) !== false) {
-            $columns = fgetcsv($handle, 3000, ",");
-            // dump($columns);
-            fclose($handle);
-        }
-        // die();
-
-    //     //sql query for creating csv table
-    //     $create_table_sql= 'CREATE TABLE '.$random_num.' (';
-    //     for($i=0;$i<count($columns); $i++) {
-    //         $create_table_sql .= '`' . $columns[$i].'` TEXT ';
-
-    //         if($i < count($columns) - 1)
-    //             $create_table_sql .= ',';
-    //     }
-    //     $create_table_sql .= ')';
-
-    //     //sql query for importing data to table from csv
-    //     $insert_sql=<<<eof
-    //     LOAD DATA LOCAL INFILE '$file_full' 
-    //     INTO TABLE $random_num 
-    //     FIELDS TERMINATED BY ',' 
-    //     ENCLOSED BY '"'
-    //     LINES TERMINATED BY '\n'
-    //     IGNORE 1 LINES;
-    //     eof;
-    //    $conn = $entityManager->getRepository(MetaTable::class)->createOrDropDynamicTable($create_table_sql);
-    //    $conn = $entityManager->getRepository(MetaTable::class)->addDataToTable($insert_sql);
     
         // Save to meta_table in db
 
         $metaTable = new MetaTable();
         $em = $doctrine->getManager();
-        $metaTable->setFilename($filename);
+        $metaTable->setFilename($fileKeyS3);
         $metaTable->setFilesize($filesize);
         $metaTable->setColumns($columns);
         $metaTable->setOriginalFileName($originalFileName);
@@ -185,7 +171,7 @@ class FileUploadController extends AbstractController
         $em->flush();
 
         return $this->redirectToRoute('app_modify_file', [
-            'filename' => (string) $filename,
+            'filename' => (string) $fileKeyS3,
         ]);
     } 
 
@@ -209,83 +195,86 @@ class FileUploadController extends AbstractController
 
     // Export the modified CSV
     /**
-     * @Route("/export", name="app_export")
+     * @Route("/export/{format<zip|csv>}", name="app_export")
      */
-    public function export(Request $request, EntityManagerInterface $entityManager): Response
+    public function export($format, Request $request, EntityManagerInterface $entityManager): Response
     {      
         ob_start();
         $uploads_directory = $this->getParameter('uploads_directory');
         $filename = $request->get('filename');
-        $file_full = $uploads_directory . '/' . $filename;
+        $local_file_full = $uploads_directory . '/' . $filename;
 
         // Modified Index wise Columns
         $original_column = $request->get('original_cols');
-        dump($original_column);
+        // dump($original_column);
         $renamed_column = $request->get('text');
-        dump($renamed_column);
-        dd();
-        // Array of columns from UI
-        $list = array($renamed_column); 
-        
-        $ext = '.csv' ;
-        // $table = str_replace($ext, '', $filename);
+        // dump($renamed_column);
 
-        // Process only if Table exixts (Page is neither refreshed nor multiple times exported)
-        // if ($entityManager->getRepository(MetaTable::class)->table_exists($table)) {        
-            
-            $fp = fopen('php://output', 'w');
-            foreach ($list as $fields) {
-                fputcsv($fp, $fields);
-            }
-            
-        //     //sql query for fetching modified csv data from table
-        //     $fetch_sql = 'SELECT ';
-        //     for($i=0;$i<count($original_column); $i++) {
-        //         $fetch_sql .= '`' . $original_column[$i] . '`' ;
-        //         if($i < count($original_column) - 1)
-        //             $fetch_sql .= ',';
-        //     }
-        //     $fetch_sql .= ' FROM ' .$table;
-     
-        //     $conn = $entityManager->getRepository(MetaTable::class)->getUpdatedcsv($fetch_sql);
-            $metaRecord = $entityManager->getRepository(MetaTable::class)->findOneBy(['filename' => $filename]);
-            $originalFileName = $metaRecord->getOriginalFileName();
-            $convertedFileName = "converted_" . $originalFileName;
+        $cols = array();
+        $cols['ResponseFormat'] = $format;
+        $cols['Records'] = array(
+                                'BucketName' => $_ENV['AWS_S3_BUCKET_NAME'],
+                                'ObjectKey'    => $filename
+                            );
+                            
+        $cols['Data'] = array();
+        for ($i=0; $i < count($original_column); $i++) { 
+            array_push(
+                $cols['Data'], 
+                array('Order' => $i+1, 'OldColumn' => $original_column[$i], 'NewColumn' => $renamed_column[$i])
+            );    
+        }
+        $json_cols = json_encode($cols);
+        // dd($cols);
+        // dd($json_cols);
+
+        $lambdaClient = new LambdaClient($this->config);
+
+        $result = $lambdaClient->invoke([
+            'FunctionName' => 'arn:aws:lambda:us-east-1:811490560759:function:csvEditor',
+            'Payload' => $json_cols
+        ]);
+        $response = json_decode($result->get('Payload')->__toString(), true);
+        // dump($response);
+        $download_url_json = $response['body'];
+        $download_url = json_decode($download_url_json, true)['url'];
+        // dump($download_url);
+        $download_filename = explode($_ENV['AWS_S3_BUCKET_NAME'].'/', $download_url)[1];
+        // dump($download_filename);
         
-        //     $reader = Reader::createFromPath($file_full);
-        //     $reader->setHeaderOffset(0);
-        //     foreach ($conn as $fields) {
-        //         fputcsv($fp, $fields);
-        //     }
+            // $metaRecord = $entityManager->getRepository(MetaTable::class)->findOneBy(['filename' => $filename]);
+            // $originalFileName = $metaRecord->getOriginalFileName();
+            // $convertedFileName = "converted_" . $originalFileName;
         
             $session = $request->getSession();
             $session->invalidate();
-            $response = new Response();
-            $response->headers->set('Content-Type', 'binary/octet-stream');
             
-            // It's gonna output in a converted_originalFilename.csv file
-            $response->headers->set('Content-Disposition', 'attachment; filename="'.$convertedFileName.'.csv"');
-            
-            // Delete file from uploads directory
-            $fileSystem = new Filesystem();
-            $fileSystem->remove($file_full);
-            
-        //     // Delete file_table from Database
-        //     $drop_table_sql="DROP TABLE `$table`";
-        //     $conn = $entityManager->getRepository(MetaTable::class)->createOrDropDynamicTable($drop_table_sql);
-
-        //     // return new BinaryFileResponse();
-            
+            $s3 = new S3Client($this->config);
+            try {
+                // Get the object.
+                $result = $s3->getObject([
+                    'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+                    'Key'    => $download_filename
+                ]);
+                // dd($result);
+                
+                // Display the object in the browser. (Download)
+                header("Content-Type: {$result['ContentType']}");
+                header("Content-Disposition: attachment; filename=".$download_filename);
+                return new Response($result['Body']);
+                // echo $result['Body'];
+            } catch (S3Exception $e) {
+                echo $e->getMessage() . PHP_EOL;
+            }
+            // die();
+                        
         //     // $response->headers->set('Location', 'file_upload/index.html.twig');
         //     // header('Location : /file_upload');
-            return $response;
+            // return $response;
             ob_clean();
-        // }
-        // else {
-        //     return $this->render('/failure/table_failure.html.twig');
-        // }
     }
 
+    // Upload File to S3 Bucket
     public function uploadToS3(S3Client $s3, $filename_key, $file)
     {
         $s3->putObject([
@@ -295,6 +284,32 @@ class FileUploadController extends AbstractController
         ]);
         // echo "File Uploaded to S3";
         // return 1;
+    }
+
+    // Check if Zip has only a single file and it is a CSV
+    public function checkZipContents($zipArchive, $fileExt)
+    {
+        $zipFileCounts = $zipArchive->count();
+        if ($zipFileCounts > 1) {
+            $not_supported = "Your Zip should contain only a single CSV in it!";
+            return $not_supported;
+        }
+        if ($fileExt !== ".csv") {
+            $not_supported = "File format other than CSV found in your Zip!";
+            return $not_supported;
+        }
+    }
+
+    // Get Column Names from CSV File
+    public function getColumnHeaders($url)
+    {
+        // Read CSV with fopen
+        if (($handle = fopen($url, "rb")) !== false) {
+            $columns = fgetcsv($handle, 3000, ",");
+            // dump($columns);
+            fclose($handle);
+            return $columns;
+        }
     }
        
 }
