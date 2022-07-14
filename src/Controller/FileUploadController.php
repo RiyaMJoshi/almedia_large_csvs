@@ -18,7 +18,8 @@ use League\Csv\Reader;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Csv\Writer;
 use Doctrine\ORM\Mapping as ORM;
-use PhpParser\Node\Scalar\MagicConst\File;
+use Symfony\Component\HttpFoundation\File;
+// use PhpParser\Node\Scalar\MagicConst\File;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -33,9 +34,9 @@ class FileUploadController extends AbstractController
     {
         $this->credentials = new Credentials($_ENV['AWS_S3_ACCESS_ID'], $_ENV['AWS_S3_ACCESS_SECRET']);
         $this->config = array(
-            'version' => 'latest',
-                        'region' => 'us-east-1',
-                        'credentials' => $this->credentials
+            'version' => $_ENV['AWS_S3_VERSION'],
+            'region' => $_ENV['AWS_S3_REGION'],
+            'credentials' => $this->credentials
         );
     }
      
@@ -43,10 +44,15 @@ class FileUploadController extends AbstractController
     /**
      * @Route("/", name="app_homepage")
      */
-    function index(): Response
+    function index(Request $request): Response
     {
+        $error = "";
+        if ($request->get('error')) {
+            $error = trim($request->get('error'), '"');
+        }
         return $this->render('file_upload/index.html.twig', [
             'controller_name' => 'FileUploadController',
+            'invalid_format' => $error
         ]);
     }
 
@@ -62,6 +68,14 @@ class FileUploadController extends AbstractController
         $file = $request->files->get('formFile');
         // dd($file);
 
+        // Get MIME Type of Uploaded File
+        $mime = $_FILES['formFile']['type'];
+        // dd($mime);
+
+        // Guess File Extension based on File Content
+        $originalExtension = $file->guessExtension();
+        // dd($originalExtension);
+
         // Get Original FileName with Extension
         $originalFile = pathinfo($file->getClientOriginalName(), PATHINFO_BASENAME);
         
@@ -69,11 +83,11 @@ class FileUploadController extends AbstractController
         $originalFileName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
         // Get Extension of Original File
-        $originalExtension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
+        $userExtension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
         
         $uploads_directory = $this->getParameter('uploads_directory');
         $random_num = md5(uniqid());
-        $fileKeyS3 = $random_num . '.' . $originalExtension;
+        $fileKeyS3 = $random_num . '.' . $userExtension;
         $filename = '';
         $filesize = 0;
 
@@ -84,6 +98,8 @@ class FileUploadController extends AbstractController
         if ($originalExtension == 'zip') {
             $zipArchive = new ZipArchive();
             $zipArchive->open($file);
+            // Count Total Files inside Zip
+            $zipFileCounts = $zipArchive->count();
             // Get first file inside zip
             $stat = $zipArchive->statIndex(0);
 
@@ -91,16 +107,7 @@ class FileUploadController extends AbstractController
             $file1 = basename($stat['name']);
             // Extension of file inside the zip file (It must be 'csv' for further process)
             $fileExt = '.' . pathinfo($stat['name'], PATHINFO_EXTENSION);
-            
-            // Check if File inside zip is in CSV format; Redirect if Not Supported
-            $not_supported = $this->checkZipContents($zipArchive, $fileExt);
-            
-            if ($not_supported) {
-                return $this->render('file_upload/index.html.twig', [
-                    'controller_name' => 'FileUploadController',
-                    'invalid_format' => $not_supported
-                ]);
-            }
+            // dd($fileExt);
             
             // CSV Filename (for Local) after renaming (string)
             $filename = $random_num . $fileExt; 
@@ -111,6 +118,18 @@ class FileUploadController extends AbstractController
             $local_file_full = $uploads_directory . '/' . $filename;
             rename($uploads_directory."/".$file1, $local_file_full);
             $filesize = filesize($local_file_full); // bytes
+            $mime = mime_content_type($local_file_full); 
+            // dd($mime);
+            // Check if File inside zip is in CSV format; Redirect if Not Supported
+            $not_supported = $this->checkZipContents($zipFileCounts, $fileExt, $mime);
+            // dd($not_supported);
+            
+            if ($not_supported) {
+                return $this->render('file_upload/index.html.twig', [
+                    'controller_name' => 'FileUploadController',
+                    'invalid_format' => $not_supported
+                ]);
+            }
                        
             try {
                 // Upload CSV File from Local to S3 Bucket
@@ -121,6 +140,7 @@ class FileUploadController extends AbstractController
 
                 // Get Column Names from CSV
                 $columns = $this->getColumnHeaders($local_file_full);
+                // dd($columns);
                 // Delete file from uploads directory
                 $fileSystem = new Filesystem();
                 $fileSystem->remove($local_file_full);
@@ -129,7 +149,7 @@ class FileUploadController extends AbstractController
             }
         } 
         // Move directly if it is CSV
-        else if ($originalExtension == 'csv') {
+        else if ($originalExtension == 'csv' || ($originalExtension == 'txt' && $mime == "text/csv")) {
             // Filename after renaming (string)
             // $filename = $random_num . '.' . $file->guessExtension();
             $filesize = filesize($file); // bytes
@@ -143,9 +163,17 @@ class FileUploadController extends AbstractController
 
                 // Get Column Names from S3 CSV
                 $columns = $this->getColumnHeaders($url);
+                // dd($columns);
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
             }
+        }
+        else {
+            $not_supported = "There is something wrong with the file content. Please check your file!";
+            return $this->render('file_upload/index.html.twig', [
+                'controller_name' => 'FileUploadController',
+                'invalid_format' => $not_supported
+            ]);
         }
         // dd("Zip uploaded");
         // die();
@@ -228,23 +256,51 @@ class FileUploadController extends AbstractController
         // dd($cols);
         // dd($json_cols);
 
-        $lambdaClient = new LambdaClient($this->config);
+        try {
+            $lambdaClient = new LambdaClient($this->config);
 
-        $result = $lambdaClient->invoke([
-            'FunctionName' => 'arn:aws:lambda:us-east-1:811490560759:function:csvEditor',
-            'Payload' => $json_cols
-        ]);
-        $response = json_decode($result->get('Payload')->__toString(), true);
-        // dump($response);
-        $download_url_json = $response['body'];
-        $download_url = json_decode($download_url_json, true)['url'];
-        // dump($download_url);
-        $download_filename = explode($_ENV['AWS_S3_BUCKET_NAME'].'/', $download_url)[1];
-        // dump($download_filename);
+            $result = $lambdaClient->invoke([
+                'FunctionName' => 'arn:aws:lambda:us-east-1:811490560759:function:newCSVEditor',
+                'Payload' => $json_cols
+            ]);
+            $response = json_decode($result->get('Payload')->__toString(), true);
+            // dump($response);
+            // die();
+
+            if (array_key_exists('statusCode', $response)) {
+                if ($response['statusCode'] == 200) {
+                    $download_url_json = $response['body'];
+                    $download_url = json_decode($download_url_json, true)['url'];
+                    // dump($download_url);
+                    $download_filename = explode($_ENV['AWS_S3_BUCKET_NAME'].'/', $download_url)[1];
+                    // dump($download_filename);
+                }
+                else if ($response['statusCode'] == 404) {
+                    $error = $response['error'];
+                    return $this->redirectToRoute('app_homepage', [
+                        'error' => $error
+                    ]);
+                    // dd($error);
+                }
+            }
+            else if (array_key_exists('errorType', $response)) {
+                if ($response['errorType'] == "UnicodeDecodeError") {
+                    $error = "Some unsupported character found in your File.. Could not process further!";
+                    return $this->redirectToRoute('app_homepage', [
+                        'error' => $error
+                    ]);
+                    // dd($error);
+                }
+            }
+            
+        } catch (LambdaException $e) {
+            echo $e->getMessage() . "\n";
+        }
         
-            // $metaRecord = $entityManager->getRepository(MetaTable::class)->findOneBy(['filename' => $filename]);
-            // $originalFileName = $metaRecord->getOriginalFileName();
-            // $convertedFileName = "converted_" . $originalFileName;
+        
+            $metaRecord = $entityManager->getRepository(MetaTable::class)->findOneBy(['filename' => $filename]);
+            $originalFileName = $metaRecord->getOriginalFileName();
+            $convertedFileName = "converted_" . $originalFileName . ".$format";
         
             $session = $request->getSession();
             $session->invalidate();
@@ -260,7 +316,7 @@ class FileUploadController extends AbstractController
                 
                 // Display the object in the browser. (Download)
                 header("Content-Type: {$result['ContentType']}");
-                header("Content-Disposition: attachment; filename=".$download_filename);
+                header("Content-Disposition: attachment; filename=".$convertedFileName);
                 return new Response($result['Body']);
                 // echo $result['Body'];
             } catch (S3Exception $e) {
@@ -287,17 +343,19 @@ class FileUploadController extends AbstractController
     }
 
     // Check if Zip has only a single file and it is a CSV
-    public function checkZipContents($zipArchive, $fileExt)
+    public function checkZipContents($zipFileCounts, $fileExt, $mime)
     {
-        $zipFileCounts = $zipArchive->count();
+        $not_supported = null;
         if ($zipFileCounts > 1) {
             $not_supported = "Your Zip should contain only a single CSV in it!";
-            return $not_supported;
         }
-        if ($fileExt !== ".csv") {
+        else if ($fileExt == ".csv" && ($mime == "text/csv" || $mime == "text/plain")) {
+            $not_supported = null;
+        }
+        else {
             $not_supported = "File format other than CSV found in your Zip!";
-            return $not_supported;
         }
+        return $not_supported;
     }
 
     // Get Column Names from CSV File
