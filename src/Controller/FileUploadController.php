@@ -62,11 +62,13 @@ class FileUploadController extends AbstractController
      */
     function upload(Request $request, ManagerRegistry $doctrine, EntityManagerInterface $entityManager)
     {
-      
         $entityManager = $doctrine->getManager(); 
         //Get and Upload CSV
         $file = $request->files->get('formFile');
         // dd($file);
+        $fileKeyS3 = $request->get('uniqueFileNameText');
+        $random_num = mb_split("\.", $fileKeyS3)[0];
+        // dd($random_num);
 
         // Get MIME Type of Uploaded File
         $mime = $_FILES['formFile']['type'];
@@ -86,8 +88,8 @@ class FileUploadController extends AbstractController
         $userExtension = pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION);
         
         $uploads_directory = $this->getParameter('uploads_directory');
-        $random_num = md5(uniqid());
-        $fileKeyS3 = $random_num . '.' . $userExtension;
+        // $random_num = md5(uniqid());
+        // $fileKeyS3 = $random_num . '.' . $userExtension;
         $filename = '';
         $filesize = 0;
 
@@ -111,6 +113,9 @@ class FileUploadController extends AbstractController
             
             // CSV Filename (for Local) after renaming (string)
             $filename = $random_num . $fileExt; 
+
+            // Create a Filesystem Object to Delete the File Later
+            $fileSystem = new Filesystem();
             
             // Extract Zip to Local Uploads, Rename it, Upload CSV in it to S3 and Delete from Local Uploads
             $zipArchive->extractTo($uploads_directory, $file1);
@@ -125,6 +130,20 @@ class FileUploadController extends AbstractController
             // dd($not_supported);
             
             if ($not_supported) {
+                $fileSystem->remove($local_file_full);
+                try {
+                    // Delete the object.
+                    $result = $s3->deleteObject([
+                        'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+                        'Key'    => $fileKeyS3
+                    ]);
+                    //dd($result);
+                    
+                    // return new Response($result);
+                    // echo $result['Body'];
+                } catch (S3Exception $e) {
+                    echo $e->getMessage() . PHP_EOL;
+                }
                 return $this->render('file_upload/index.html.twig', [
                     'controller_name' => 'FileUploadController',
                     'invalid_format' => $not_supported
@@ -136,13 +155,13 @@ class FileUploadController extends AbstractController
                 // $this->uploadToS3($s3, $filename, $local_file_full);
 
                 // Upload ZIP to S3 for Time Optimisation
-                $this->uploadToS3($s3, $fileKeyS3, $file);
+                // $this->uploadToS3($s3, $fileKeyS3, $file);
 
                 // Get Column Names from CSV
                 $columns = $this->getColumnHeaders($local_file_full);
                 // dd($columns);
                 // Delete file from uploads directory
-                $fileSystem = new Filesystem();
+                // $fileSystem = new Filesystem();
                 $fileSystem->remove($local_file_full);
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
@@ -156,11 +175,11 @@ class FileUploadController extends AbstractController
           
             try {
                 // Upload File to S3 Bucket
-                $this->uploadToS3($s3, $fileKeyS3, $file);
+               // $this->uploadToS3($s3, $fileKeyS3, $file);
 
                 $s3->registerStreamWrapper();
                 $url = 's3://' . $_ENV['AWS_S3_BUCKET_NAME'] . '/' .$fileKeyS3;
-
+                // dd($url);
                 // Get Column Names from S3 CSV
                 $columns = $this->getColumnHeaders($url);
                 // dd($columns);
@@ -169,6 +188,19 @@ class FileUploadController extends AbstractController
             }
         }
         else {
+            try {
+                // Delete the object.
+                $result = $s3->deleteObject([
+                    'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+                    'Key'    => $fileKeyS3
+                ]);
+                //dd($result);
+                
+                // return new Response($result);
+                // echo $result['Body'];
+            } catch (S3Exception $e) {
+                echo $e->getMessage() . PHP_EOL;
+            }
             $not_supported = "There is something wrong with the file content. Please check your file!";
             return $this->render('file_upload/index.html.twig', [
                 'controller_name' => 'FileUploadController',
@@ -274,9 +306,13 @@ class FileUploadController extends AbstractController
                     // dump($download_url);
                     $download_filename = explode($_ENV['AWS_S3_BUCKET_NAME'].'/', $download_url)[1];
                     // dump($download_filename);
+                    // die();
                 }
                 else if ($response['statusCode'] == 404) {
-                    $error = $response['error'];
+                    $errorBody = $response['body'];
+                    $error = json_decode($errorBody, true)['error'];
+                    // dd($error);
+                    // $error = $response['error'];
                     return $this->redirectToRoute('app_homepage', [
                         'error' => $error
                     ]);
