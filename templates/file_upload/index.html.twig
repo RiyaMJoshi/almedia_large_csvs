@@ -22,7 +22,7 @@
         <div id="upload-valid-inputs">
             <input class="form-control mb-0" type="file" id="formFile" name="formFile"  accept=".csv, .zip" required="required">
             <div class="mx-4 mt-n4" id="validityMessage">
-                <span class="form-label mt-0 px-2 text-danger">Please select a file!</span>
+                <span class="form-label mt-0 px-2 text-danger"></span>
             </div>
         </div>
 
@@ -56,58 +56,66 @@ function uploadAttachments() {
         $("#formCancel").show();
         let file = document.getElementById('formFile').files[0];
         console.log(file);
-        let ext = (file.name).split('.')[1];
-        let spiltName = (file.name).split('.')[0];
-        // let uniqueText = uniqueId();
-        let uniqueText = Math.ceil(Math.random()*1000000000000000000);
-        let uniqueFileName = uniqueText + "." + ext;
-        let uniqueFileNameText ='<input type="hidden" name="uniqueFileNameText" id="uniqueFileNameText" value="' + uniqueFileName + '">';
-        $("#uploadForm").append(uniqueFileNameText);
-        let appendProgressBar = '<div id="'+uniqueText+'" class="progress"\n' +
-            '                 style="margin-top: 1%;">\n' +
-            '                <div class="progress-bar progress-bar-striped bg-success" role="progressbar" style="width:0%;"\n' +
-            '                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">\n' +
-            '                    <span class="progress-text"></span>\n' + 
-            '                </div>\n' +
-            '            </div>';
-        document.getElementById("myProgress").innerHTML = appendProgressBar;
-        let progressBar = $("#"+uniqueText).find('.progress-bar')[0];
-        let fileUpload = {
-            id: "",
-            name: file.name,
-            nameUpload: uniqueFileName,
-            size: file.size,
-            type: "",
-            timeReference: 'Unknown',
-            progressStatus: 0,
-            displayName: file.name,
-            status: 'Uploading..',
-        };
-        console.log("Selected File Details.... ", fileUpload);
-        uploadFile(uniqueFileName, file)
-            .on('httpUploadProgress', function (progress) {
-                let progressPercentage = Math.round(progress.loaded / progress.total * 100);
-                console.log("in httpUploadProgress", file.name, progressPercentage);
-                progressBar.style.width = progressPercentage + "%";
-                // progressBar.querySelector(".progress-text").textContent = file.name + " (" + progressPercentage + "%)";
-                progressBar.querySelector(".progress-text").textContent = progressPercentage + "%";
-                if (progressPercentage < 100) {
-                    fileUpload.progressStatus = progressPercentage;
-                } else if (progressPercentage == 100) {
-                    fileUpload.progressStatus = progressPercentage;
-                    fileUpload.status = "Uploaded";
-                    setTimeout(function() {
-                      document.getElementById("uploadForm").submit();
-                    }, 2000);
-                }
-            }); 
+        let mime = file['type'];
+        // alert(mime);
+        if(mime == "text/csv" || mime == "application/zip") {
+            $("#validityMessage").hide();
+            let ext = (file.name).split('.')[1];
+            let spiltName = (file.name).split('.')[0];
+            // let uniqueText = uniqueId();
+            let uniqueText = Math.ceil(Math.random()*1000000000000000000);
+            let uniqueFileName = uniqueText + "." + ext;
+            let uniqueFileNameText ='<input type="hidden" name="uniqueFileNameText" id="uniqueFileNameText" value="' + uniqueFileName + '">';
+            $("#uploadForm").append(uniqueFileNameText);
+            let appendProgressBar = '<div id="'+uniqueText+'" class="progress"\n' +
+                '                 style="margin-top: 1%;">\n' +
+                '                <div class="progress-bar progress-bar-striped bg-success" role="progressbar" style="width:0%;"\n' +
+                '                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">\n' +
+                '                    <span class="progress-text"></span>\n' + 
+                '                </div>\n' +
+                '            </div>';
+            document.getElementById("myProgress").innerHTML = appendProgressBar;
+            let progressBar = $("#"+uniqueText).find('.progress-bar')[0];
+            let fileUpload = {
+                id: "",
+                name: file.name,
+                nameUpload: uniqueFileName,
+                size: file.size,
+                type: "",
+                timeReference: 'Unknown',
+                progressStatus: 0,
+                displayName: file.name,
+                status: 'Uploading..',
+            };
+            console.log("Selected File Details.... ", fileUpload);
+            uploadFile(uniqueFileName, file)
+                .on('httpUploadProgress', function (progress) {
+                    let progressPercentage = Math.round(progress.loaded / progress.total * 100);
+                    console.log("in httpUploadProgress", file.name, progressPercentage);
+                    progressBar.style.width = progressPercentage + "%";
+                    // progressBar.querySelector(".progress-text").textContent = file.name + " (" + progressPercentage + "%)";
+                    progressBar.querySelector(".progress-text").textContent = progressPercentage + "%";
+                    if (progressPercentage < 100) {
+                        fileUpload.progressStatus = progressPercentage;
+                    } else if (progressPercentage == 100) {
+                        fileUpload.progressStatus = progressPercentage;
+                        fileUpload.status = "Uploaded";
+                        setTimeout(function() {
+                        document.getElementById("uploadForm").submit();
+                        }, 2000);
+                    }
+                }); 
         } else {
-            $("#formFile").css({"border-color": "red", "border-width": 2});
-            $("#formFile").attr("title", "Please select a File!");
-            $('#formFile').trigger('mouseenter');
+            $("#validityMessage span:first-child").text("There is something wrong with the file content. Please check your file!");
             $("#validityMessage").show();
+            $("#formSubmit").removeAttr('disabled');
         }
-    };
+    } else {
+        $("#formFile").css({"border-color": "red", "border-width": 2});
+        $("#validityMessage span:first-child").text("Please select a File!");
+        $("#validityMessage").show();
+    }
+};
 
     var uploadFile = function (fileName, file) {
         console.log(file, fileName);
