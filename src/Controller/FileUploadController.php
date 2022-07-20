@@ -327,6 +327,12 @@ class FileUploadController extends AbstractController
                     ]);
                     // dd($error);
                 }
+                if ($response['errorType'] == "ValueError") {
+                    $error = "Some unsupported data value found in your File.. Could not process further!";
+                    return $this->redirectToRoute('app_homepage', [
+                        'error' => $error
+                    ]);
+                }
             }
             
         } catch (LambdaException $e) {
@@ -343,17 +349,26 @@ class FileUploadController extends AbstractController
             
             $s3 = new S3Client($this->config);
             try {
+                // Get Object URL
+                // $download_url = $s3->getObjectUrl($_ENV['AWS_S3_BUCKET_NAME'], $download_filename);
+                // dd($download_url);
                 // Get the object.
-                $result = $s3->getObject([
-                    'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
-                    'Key'    => $download_filename
-                ]);
+                // $result = $s3->getObject([
+                //     'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+                //     'Key'    => $download_filename
+                // ]);
                 // dd($result);
+                return $this->render('file_upload/index.html.twig', [
+                    //'result' => $result,
+                    'download_filename' => $download_filename,
+                    'convertedFileName' => $convertedFileName,
+                    'invalid_format' => null
+                ]);
                 
                 // Display the object in the browser. (Download)
-                header("Content-Type: {$result['ContentType']}");
-                header("Content-Disposition: attachment; filename=".$convertedFileName);
-                return new Response($result['Body']);
+                // header("Content-Type: {$result['ContentType']}");
+                // header("Content-Disposition: attachment; filename=".$convertedFileName);
+                // return new Response($result['Body']);
                 // echo $result['Body'];
             } catch (S3Exception $e) {
                 echo $e->getMessage() . PHP_EOL;

@@ -33,6 +33,20 @@
     </form>
 
     <div id="myProgress"></div>
+    {% if (download_filename is defined) and (convertedFileName is defined) %}
+        <script>
+            let download_filename = '{{ download_filename }}';
+	        let filename = '{{ convertedFileName }}';
+        </script>
+        <div id="download_start">
+            <a href="" id="download_url" style="display:none" download>{{ convertedFileName }}</a>
+        </div>
+    {% else %}
+        <script>
+            let download_filename = '';
+	        let filename = '';
+        </script>
+    {% endif %}
 </div>
 {% block javascripts %}
 <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1176.0.min.js"></script>
@@ -152,6 +166,32 @@ function uploadAttachments() {
     });
         
     initS3();
+
+    // Download File if this page is Rendered from Export
+    if(download_filename != '' && filename != ''){
+        console.log(download_filename, filename);
+        var downloadFile = function(download_filename, filename) {
+				console.log(download_filename, filename);
+				var params = {
+					Bucket: '{{ bucket_name }}',
+					Key: download_filename,
+					ResponseContentDisposition :  `attachment; filename="`+filename+`"` 
+				};
+				console.log(JSON.stringify(params));
+                bucket.getSignedUrl('getObject', params, function (err, data){
+					if (err != null) {
+						console.log("Failed to retrieve an object: " + err);
+					} else {
+						console.log("URL..", data);
+						$("#download_url").attr({href: data});
+						$("#download_url")[0].click();
+                        console.log("After click event");
+					}
+				});
+            };
+            downloadFile(download_filename, filename);
+            $("#download_url").hide();
+    }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>

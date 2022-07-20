@@ -40,14 +40,14 @@
 								</li>
 								{% endfor %}
 								<input type="hidden" name="filename" value="{{ filename }}">
+							</ul>
 								<div>
 									<input type="button" id="export_csv" class="btn btn-dark me-md-2" style="width:20%" value="Export CSV" formaction="{{path('app_export', {'format': 'csv'})}}">
 									<input type="button" id="export_zip" class="btn btn-dark me-md-2" style="width:20%" value="Export ZIP" formaction="{{path('app_export', {'format': 'zip'})}}">
 									<div id="waitingMessage" class="alert alert-info mt-4 ps-2" role="alert">
-										Please wait while we prepare your file to get downloaded! It might take few minutes.
+										Please wait while we prepare your file to get downloaded! It may take few minutes.
 									</div>
 								</div>
-							</ul>
 						</form>
 					</div>
 				</div>
@@ -70,19 +70,23 @@
 				if(btn_id == "export_csv") {
 					$(this).attr({"value": "Exporting CSV..", "disabled": "disabled"});
 					$("#export_zip").attr('disabled','disabled');
-					$("#waitingMessage").show();
+					/*$("#waitingMessage").show();
 					let formaction = $(this).attr("formaction");
 					$("#columnsForm").attr('action', formaction); 
-					document.getElementById("columnsForm").submit();
+					document.getElementById("columnsForm").submit(); */
 				}
 				else if(btn_id == "export_zip") {
 					$(this).attr({"value": "Exporting ZIP..", "disabled": "disabled"});
 					$("#export_csv").attr('disabled','disabled');
-					$("#waitingMessage").show();
+					/*$("#waitingMessage").show();
 					let formaction = $(this).attr("formaction");
 					$("#columnsForm").attr('action', formaction); 
-					document.getElementById("columnsForm").submit();
+					document.getElementById("columnsForm").submit(); */
 				}
+				$("#waitingMessage").show();
+				let formaction = $(this).attr("formaction");
+				$("#columnsForm").attr('action', formaction); 
+				document.getElementById("columnsForm").submit();
 			});
 			$("#sortable").sortable();
 		});
