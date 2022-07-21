@@ -10,6 +10,7 @@
             {{ encore_entry_link_tags('app') }}
         {% endblock %}
         {% block javascripts %}
+          <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
     </head>
@@ -25,18 +26,18 @@
                         AL Media CSVs</p>
                 </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-collapsable" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
+                {# <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-collapsable" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
                   <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="collapse navbar-collapse" id="navbar-collapsable">
-                </div>
+                </div> #}
             </div>
         </nav>       
 
         {% block body %}{% endblock %}
         <footer class="mt-auto p-3 text-center">
-            &copy; <a style="color: #444; text-decoration: none;" href="#">AL Media CSVs 2022 </a> &reg; - Your CSV Editor made with love at <a style="color: #444; text-decoration: underline;" href="https://www.simform.com/">Simform Solutions</a>
+            &copy; <a style="color: #444; text-decoration: none;" href="#">AL Media CSVs 2022 </a> &reg;
         </footer>
     </body>
 </html>

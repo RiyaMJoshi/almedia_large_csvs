@@ -5,29 +5,208 @@
 {% block body %}
 
 <div class="example-wrapper">
-    {% if invalid_format is defined %}
+    {% if invalid_format != null %}
         <div class="alert alert-danger alert-dismissible d-flex align-items-center fade show" role="alert">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2" viewBox="0 0 16 16" role="img" aria-label="Warning:">
                 <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
             </svg>
             <div>
                 {{ invalid_format }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <span type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></span>
             </div>
         </div>
     {% endif %}
     <h1>Manage Your Large CSVs</h1>
-    <span class="mb-4">Make CSV files easy to operate by managing them in various ways.</span>
-    {# <span class="mb-4">Reorder, Rename or Delete Your CSV Columns and Make CSV files easy to operate.</span> #}
-    <form action="{{path('app_upload_file')}}" method="post" class="file-top-margin" enctype="multipart/form-data">
-        <div>
-            <input class="form-control" type="file" id="formFile" name="formFile"  accept=".csv, .zip" required="required">
+    <span class="mb-4">Reorder, Rename or Delete Your CSV Columns in an easier way.</span>
+    <form action="{{path('app_upload_file')}}" method="post" class="file-top-margin" enctype="multipart/form-data" id="uploadForm">
+        <div id="upload-valid-inputs">
+            <input class="form-control mb-0" type="file" id="formFile" name="formFile"  accept=".csv, .zip" required="required">
+            <div class="mx-4 mt-n4" id="validityMessage">
+                <span class="form-label mt-0 px-2 text-danger"></span>
+            </div>
         </div>
 
-        <div>
-            <input class="mt-4 btn btn-primary" type="submit" id="formSubmit" value="Upload File">
+        <div id="upload-buttons">
+            <input class="mt-4 btn btn-primary" type="button" id="formSubmit" value="Upload File" onclick="uploadAttachments()">
+            <input class="mt-4 btn btn-dark" type="button" id="formCancel" value="Cancel" onclick="cancelUpload()">
         </div>
     </form>
+
+    <div id="myProgress"></div>
+    {% if (download_filename is defined) and (convertedFileName is defined) %}
+        <script>
+            let download_filename = '{{ download_filename }}';
+	        let filename = '{{ convertedFileName }}';
+        </script>
+        <div id="download_start">
+            <a href="" id="download_url" style="display:none" download>{{ convertedFileName }}</a>
+        </div>
+    {% else %}
+        <script>
+            let download_filename = '';
+	        let filename = '';
+        </script>
+    {% endif %}
 </div>
-{# <script> $(document).ready(function(){ console.log("From doc console"); }); </script> #}
+{% block javascripts %}
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1176.0.min.js"></script>
+<script>
+   var initS3 = function () {
+        bucket = new AWS.S3({
+        accessKeyId: '{{ credentials['key']}}',
+        secretAccessKey: '{{ credentials['secret']}}',
+        //sessionToken: "SESSION_TOKEN", // optional you can remove if you don't want pass
+        region: '{{ region }}'
+        });
+    };
+
+// Will get called on clicking 'Upload File' Button
+function uploadAttachments() {
+    console.log("in uploadAttachments()");
+    var uploadForm = document.getElementById('uploadForm');
+    
+    if(uploadForm.checkValidity()) {
+        $("#formSubmit").attr('disabled', 'disabled');
+        $("#formCancel").show();
+        let file = document.getElementById('formFile').files[0];
+        console.log(file);
+        let mime = file['type'];
+        // alert(mime);
+        if(mime == "text/csv" || mime == "application/zip") {
+            $("#validityMessage").hide();
+            let ext = (file.name).split('.')[1];
+            let spiltName = (file.name).split('.')[0];
+            // let uniqueText = uniqueId();
+            let uniqueText = Math.ceil(Math.random()*1000000000000000000);
+            let uniqueFileName = uniqueText + "." + ext;
+            let uniqueFileNameText ='<input type="hidden" name="uniqueFileNameText" id="uniqueFileNameText" value="' + uniqueFileName + '">';
+            $("#uploadForm").append(uniqueFileNameText);
+            let appendProgressBar = '<div id="'+uniqueText+'" class="progress"\n' +
+                '                 style="margin-top: 1%;">\n' +
+                '                <div class="progress-bar progress-bar-striped bg-success" role="progressbar" style="width:0%;"\n' +
+                '                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">\n' +
+                '                    <span class="progress-text"></span>\n' + 
+                '                </div>\n' +
+                '            </div>';
+            document.getElementById("myProgress").innerHTML = appendProgressBar;
+            let progressBar = $("#"+uniqueText).find('.progress-bar')[0];
+            let fileUpload = {
+                id: "",
+                name: file.name,
+                nameUpload: uniqueFileName,
+                size: file.size,
+                type: "",
+                timeReference: 'Unknown',
+                progressStatus: 0,
+                displayName: file.name,
+                status: 'Uploading..',
+            };
+            console.log("Selected File Details.... ", fileUpload);
+            uploadFile(uniqueFileName, file)
+                .on('httpUploadProgress', function (progress) {
+                    let progressPercentage = Math.round(progress.loaded / progress.total * 100);
+                    console.log("in httpUploadProgress", file.name, progressPercentage);
+                    progressBar.style.width = progressPercentage + "%";
+                    // progressBar.querySelector(".progress-text").textContent = file.name + " (" + progressPercentage + "%)";
+                    progressBar.querySelector(".progress-text").textContent = progressPercentage + "%";
+                    if (progressPercentage < 100) {
+                        fileUpload.progressStatus = progressPercentage;
+                    } else if (progressPercentage == 100) {
+                        fileUpload.progressStatus = progressPercentage;
+                        fileUpload.status = "Uploaded";
+                        setTimeout(function() {
+                        document.getElementById("uploadForm").submit();
+                        }, 2000);
+                    }
+                }); 
+        } else {
+            $("#validityMessage span:first-child").text("There is something wrong with the file content. Please check your file!");
+            $("#validityMessage").show();
+            $("#formSubmit").removeAttr('disabled');
+        }
+    } else {
+        $("#formFile").css({"border-color": "red", "border-width": 2});
+        $("#validityMessage span:first-child").text("Please select a File!");
+        $("#validityMessage").show();
+    }
+};
+
+    var uploadFile = function (fileName, file) {
+        console.log(file, fileName);
+        var params = {
+        Bucket: '{{ bucket_name }}',
+        Key: fileName,
+        Body: file,
+        ContentType: file.type
+        };
+        console.log(JSON.stringify(params));
+       // console.log(bucket.upload(params, function (err, data) {
+        return bucket.upload(params, function (err, data) {  
+            if (err) {
+            console.log('There was an error uploading your file: ', err);
+            console.log("Error: ", err);
+            return false;
+            }
+            console.log('Successfully uploaded file.', data);
+            console.log("Success: ", data);
+            return true;
+        });
+        //); 
+    };
+
+    function cancelUpload() {
+        location.reload(true);
+    }
+
+    // Hide some elements on page load
+    document.addEventListener("DOMContentLoaded", function(event) { 
+        $("#validityMessage").hide();
+        $("#formCancel").hide();
+    });
+        
+    initS3();
+
+    // Download File if this page is Rendered from Export
+    if(download_filename != '' && filename != ''){
+        console.log(download_filename, filename);
+        var downloadFile = function(download_filename, filename) {
+				console.log(download_filename, filename);
+				var params = {
+					Bucket: '{{ bucket_name }}',
+					Key: download_filename,
+					ResponseContentDisposition :  `attachment; filename="`+filename+`"` 
+				};
+				console.log(JSON.stringify(params));
+                bucket.getSignedUrl('getObject', params, function (err, data){
+					if (err != null) {
+						console.log("Failed to retrieve an object: " + err);
+					} else {
+						console.log("URL..", data);
+                        $("#download_url").attr({href: data});
+                        $("#download_url")[0].click();
+                        console.log("After click event");
+                        console.log(download_filename, filename);
+					}
+				});
+            };
+            let fileDownload = {
+                id: "",
+                name: download_filename,
+                nameDownload: filename,
+                type: "",
+                timeReference: 'Unknown',
+                progressStatus: 0,
+                displayName: download_filename,
+                status: 'Downloading..',
+            };
+            downloadFile(download_filename, filename);
+            $("#download_url").hide();
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
+<script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js" integrity="sha384-qlmct0AOBiA2VPZkMY3+2WqkHtIQ9lSdAsAn5RUJD/3vA5MKDgSGcdmIv4ycVxyn" crossorigin="anonymous"></script>
+{% endblock %}
 {% endblock %}

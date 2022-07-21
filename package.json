@@ -17,5 +17,8 @@
         "dev": "encore dev",
         "watch": "encore dev --watch",
         "build": "encore production --progress"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.130.0"
     }
 }
