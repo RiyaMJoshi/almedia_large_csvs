@@ -155,7 +155,6 @@ function uploadAttachments() {
     };
 
     function cancelUpload() {
-        //console.log("unique..", uniqueFileName);
         location.reload(true);
     }
 
@@ -183,11 +182,22 @@ function uploadAttachments() {
 						console.log("Failed to retrieve an object: " + err);
 					} else {
 						console.log("URL..", data);
-						$("#download_url").attr({href: data});
-						$("#download_url")[0].click();
+                        $("#download_url").attr({href: data});
+                        $("#download_url")[0].click();
                         console.log("After click event");
+                        console.log(download_filename, filename);
 					}
 				});
+            };
+            let fileDownload = {
+                id: "",
+                name: download_filename,
+                nameDownload: filename,
+                type: "",
+                timeReference: 'Unknown',
+                progressStatus: 0,
+                displayName: download_filename,
+                status: 'Downloading..',
             };
             downloadFile(download_filename, filename);
             $("#download_url").hide();

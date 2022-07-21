@@ -47,12 +47,21 @@ class FileUploadController extends AbstractController
     function index(Request $request): Response
     {
         $error = "";
+        $download_filename = "";
+        $convertedFileName = "";
+
         if ($request->get('error')) {
             $error = trim($request->get('error'), '"');
         }
+        if ($request->get('download_filename') && $request->get('convertedFileName')) {
+            $download_filename = $request->get('download_filename');
+            $convertedFileName = $request->get('convertedFileName');
+        }
         return $this->render('file_upload/index.html.twig', [
             'controller_name' => 'FileUploadController',
-            'invalid_format' => $error
+            'invalid_format' => $error,
+            'download_filename' => $download_filename,
+            'convertedFileName' => $convertedFileName
         ]);
     }
 
@@ -89,7 +98,6 @@ class FileUploadController extends AbstractController
         
         $uploads_directory = $this->getParameter('uploads_directory');
         // $random_num = md5(uniqid());
-        // $fileKeyS3 = $random_num . '.' . $userExtension;
         $filename = '';
         $filesize = 0;
 
@@ -151,17 +159,10 @@ class FileUploadController extends AbstractController
             }
                        
             try {
-                // Upload CSV File from Local to S3 Bucket
-                // $this->uploadToS3($s3, $filename, $local_file_full);
-
-                // Upload ZIP to S3 for Time Optimisation
-                // $this->uploadToS3($s3, $fileKeyS3, $file);
-
                 // Get Column Names from CSV
                 $columns = $this->getColumnHeaders($local_file_full);
                 // dd($columns);
                 // Delete file from uploads directory
-                // $fileSystem = new Filesystem();
                 $fileSystem->remove($local_file_full);
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
@@ -169,14 +170,9 @@ class FileUploadController extends AbstractController
         } 
         // Move directly if it is CSV
         else if ($originalExtension == 'csv' || ($originalExtension == 'txt' && $mime == "text/csv")) {
-            // Filename after renaming (string)
-            // $filename = $random_num . '.' . $file->guessExtension();
             $filesize = filesize($file); // bytes
           
             try {
-                // Upload File to S3 Bucket
-               // $this->uploadToS3($s3, $fileKeyS3, $file);
-
                 $s3->registerStreamWrapper();
                 $url = 's3://' . $_ENV['AWS_S3_BUCKET_NAME'] . '/' .$fileKeyS3;
                 // dd($url);
@@ -213,9 +209,6 @@ class FileUploadController extends AbstractController
         $session = new Session();
         // //$session->start();
         $session->set('user_id', $random_num);
-        // $local_file_full = Absolute file path
-        // $local_file_full = $uploads_directory . '/' . $filename;
-        // $filesize = filesize($local_file_full); // bytes
         $filesize = round($filesize / 1024, 2); // Convert Byte size to KB
 
     
@@ -311,8 +304,6 @@ class FileUploadController extends AbstractController
                 else if ($response['statusCode'] == 404) {
                     $errorBody = $response['body'];
                     $error = json_decode($errorBody, true)['error'];
-                    // dd($error);
-                    // $error = $response['error'];
                     return $this->redirectToRoute('app_homepage', [
                         'error' => $error
                     ]);
@@ -349,35 +340,14 @@ class FileUploadController extends AbstractController
             
             $s3 = new S3Client($this->config);
             try {
-                // Get Object URL
-                // $download_url = $s3->getObjectUrl($_ENV['AWS_S3_BUCKET_NAME'], $download_filename);
-                // dd($download_url);
-                // Get the object.
-                // $result = $s3->getObject([
-                //     'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
-                //     'Key'    => $download_filename
-                // ]);
-                // dd($result);
-                return $this->render('file_upload/index.html.twig', [
-                    //'result' => $result,
+                return $this->redirectToRoute('app_homepage', [
                     'download_filename' => $download_filename,
                     'convertedFileName' => $convertedFileName,
                     'invalid_format' => null
                 ]);
-                
-                // Display the object in the browser. (Download)
-                // header("Content-Type: {$result['ContentType']}");
-                // header("Content-Disposition: attachment; filename=".$convertedFileName);
-                // return new Response($result['Body']);
-                // echo $result['Body'];
             } catch (S3Exception $e) {
                 echo $e->getMessage() . PHP_EOL;
             }
-            // die();
-                        
-        //     // $response->headers->set('Location', 'file_upload/index.html.twig');
-        //     // header('Location : /file_upload');
-            // return $response;
             ob_clean();
     }
 
