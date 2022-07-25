@@ -52,9 +52,10 @@
 		<script src="https://code.jquery.com/jquery-3.6.0.js"></script>
 		<script src="https://code.jquery.com/ui/1.13.1/jquery-ui.js"></script>
 	<script>
-		window.onbeforeunload = function () {
+		{# window.onbeforeunload = function () {
     		return "";
- 		};
+ 		}; #}
+		var ctrlKeyDown = false;
 		$(function () {
 			$("#waitingMessage").hide();
 			$('[type="button"]').on('click', function () {
@@ -67,12 +68,15 @@
 					$(this).attr({"value": "Exporting ZIP..", "disabled": "disabled"});
 					$("#export_csv").attr('disabled','disabled');
 				}
+				$("#columnsForm :input").prop("readonly", true);
 				$("#waitingMessage").show();
 				let formaction = $(this).attr("formaction");
 				$("#columnsForm").attr('action', formaction); 
 				document.getElementById("columnsForm").submit();
 			});
 			$("#sortable").sortable();
+			$(document).on("keydown", keydown);
+    		$(document).on("keyup", keyup);
 		});
 
         $(".deleteCol").click(function(){
@@ -86,6 +90,25 @@
             }
             
         });
+		function keydown(e) { 
+			if ((e.which || e.keyCode) == 116 || ((e.which || e.keyCode) == 82 && ctrlKeyDown)) {
+				// Pressing F5 or Ctrl+R
+				// e.preventDefault();
+				window.onbeforeunload = function () {
+					return "";
+				};
+			} else if ((e.which || e.keyCode) == 17) {
+				// Pressing  only Ctrl
+				ctrlKeyDown = true;
+			}
+		};
+
+		function keyup(e){
+			// Key up Ctrl
+			if ((e.which || e.keyCode) == 17) 
+				ctrlKeyDown = false;
+		};
+
 	</script>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 	{% endblock %}
