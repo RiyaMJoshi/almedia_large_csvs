@@ -311,14 +311,14 @@ class FileUploadController extends AbstractController
                 }
             }
             else if (array_key_exists('errorType', $response)) {
-                if ($response['errorType'] == "UnicodeDecodeError") {
+                if ($response['errorType'] == "'UnicodeDecodeError'") {
                     $error = "Some unsupported character found in your File.. Could not process further!";
                     return $this->redirectToRoute('app_homepage', [
                         'error' => $error
                     ]);
                     // dd($error);
                 }
-                if ($response['errorType'] == "ValueError") {
+                if ($response['errorType'] == "'ValueError'") {
                     $error = "Some unsupported data value found in your File.. Could not process further!";
                     return $this->redirectToRoute('app_homepage', [
                         'error' => $error
