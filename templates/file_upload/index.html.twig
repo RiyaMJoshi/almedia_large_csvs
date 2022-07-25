@@ -186,6 +186,7 @@ function uploadAttachments() {
                         $("#download_url")[0].click();
                         console.log("After click event");
                         console.log(download_filename, filename);
+                        history.replaceState({}, null, "{{ path('app_homepage') }}");
 					}
 				});
             };
