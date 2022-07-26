@@ -112,7 +112,32 @@ class FileUploadController extends AbstractController
             $zipFileCounts = $zipArchive->count();
             // Get first file inside zip
             $stat = $zipArchive->statIndex(0);
+            $stat_name = $stat['name'];
 
+            // Check whether folder exists in zip; if exists throw error
+            if (str_ends_with($stat_name, '/')) {
+                    try {
+                        // Delete the object.
+                        $result = $s3->deleteObject([
+                            'Bucket' => $_ENV['AWS_S3_BUCKET_NAME'],
+                            'Key'    => $fileKeyS3
+                        ]);
+                        //dd($result);
+                        
+                        // return new Response($result);
+                        // echo $result['Body'];
+                    } catch (S3Exception $e) {
+                        echo $e->getMessage() . PHP_EOL;
+                    }
+                    $not_supported = "Zip must not contain any directory inside it..";
+                    return $this->render('file_upload/index.html.twig', [
+                        'controller_name' => 'FileUploadController',
+                        'invalid_format' => $not_supported
+                    ]);
+                //dd("Direcory found..");
+            }
+            else {
+                // dd("no directory found at first..");
             // file1 = Basename = Filename (inside zip) with Extension (string)
             $file1 = basename($stat['name']);
             // Extension of file inside the zip file (It must be 'csv' for further process)
@@ -167,6 +192,7 @@ class FileUploadController extends AbstractController
             } catch (S3Exception $e) {
                 echo $e->getMessage() . "\n";
             }
+        }
         } 
         // Move directly if it is CSV
         else if ($originalExtension == 'csv' || ($originalExtension == 'txt' && $mime == "text/csv")) {
